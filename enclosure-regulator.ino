@@ -44,7 +44,7 @@ const int humidTolerance = 4; //plus minus
 const int humidAlarmTolerance = 10; //plus minus
 const float humidAdjustInc = 2.5;
 
-const int maxTempReadings = 20;
+const int maxTempReadings = 10; //20 for relay 10 for pid
 float tempReadings[maxTempReadings];
 int curTempIndex = 0;
 
@@ -67,7 +67,7 @@ unsigned int humidPolling = 20 * 1000;
 unsigned int displayPolling = 10 * 1000;
 unsigned int buttonPolling = 500;
 
-//PID pid(&currentTemp, &dimmerLevel, &targetTemp, 50.0, 230.0, 0.25, DIRECT);
+PID pid(&currentTemp, &dimmerLevel, &targetTemp, 50.0, 230.0, 0.25, DIRECT);
 
 unsigned char dialRotation = DIR_NONE;
 
@@ -106,6 +106,10 @@ void setup() {
   
   pinMode(pwrRelayPin, OUTPUT);
   pinMode(spkrPin, OUTPUT);
+
+  //set pwm freq 125
+  //https://etechnophiles.com/change-frequency-pwm-pins-arduino-uno/
+  //TCCR1B = TCCR1B & B11111000 | B00000100;
   pinMode(dmrPin, OUTPUT);
   //analogWrite(dmrPin, 50);
 
@@ -127,8 +131,8 @@ void setup() {
     humidReadings[thisReading] = curHumid;
   }
 
-  //pid.SetOutputLimits(0,100);
-  //pid.SetMode(AUTOMATIC);//automatic
+  pid.SetOutputLimits(0,100);
+  pid.SetMode(AUTOMATIC);//automatic
 
   
   r.begin();
@@ -230,10 +234,10 @@ void updateTempDisplay()
 {
   lcd.print((String)"Temp " + currentTemp);
   lcd.setCursor(0,1);
-  String state = heaterOn ? "ON" : "OFF";
-  //lcd.print((String)"T " + targetTemp + " Br " + dimmerLevel + "%"); 
-  lcd.print((String)"T " + targetTemp + " He " + state); 
-  //lcd.print((String)"Humidity " + currentHumid);  
+  //String state = heaterOn ? "ON" : "OFF";
+  lcd.print((String)"T " + targetTemp + " Br " + dimmerLevel + "%"); 
+  //lcd.print((String)"T " + targetTemp + " He " + state); 
+    
 }
 
 void updateHumidDisplay()
@@ -253,19 +257,19 @@ void checkHeater()
       
   targetTemp = getTargetTemp();
   
-  //pid.Compute();
+  pid.Compute();
 
-  //Serial.println((String)"Dimmer level " + dimmerLevel);
-  //writeDimmer(dimmerLevel);
+  Serial.println((String)"Dimmer level " + dimmerLevel);
+  writeDimmer(dimmerLevel);
   
   float variance = currentTemp - targetTemp;//negative means heat up
-  if(abs(variance) > tempTolerance)
+  /*if(abs(variance) > tempTolerance)
   {
     if(variance < 0)
       writeHeater(true);
     else
       writeHeater(false);
-  }
+  }*/
 
   tempOOR = abs(variance) > tempAlarmTolerance;
 }
@@ -391,9 +395,9 @@ void checkAlarm(){
 void writeDimmer(int percent)
 {
     percent = min(100, max(0, percent));
-    //int pinVal = 255.0 * ((float)percent / 100.0);
+    int pinVal = 255.0 * ((float)percent / 100.0);
     Serial.println((String)"Dimmer to " + percent + "%");
-    //analogWrite(dmrPin, pinVal);
+    analogWrite(dmrPin, pinVal);
     
 }
 
